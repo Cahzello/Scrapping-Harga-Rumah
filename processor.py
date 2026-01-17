@@ -20,9 +20,14 @@ def process_data(raw_data, ump_dict):
     # 4. Hitung Affordability
     df_final['tahun_beli'] = df_final['harga_raw'] / (df_final['ump'] * 12)
     
+    # sort data secara descending (dari paling mahal)
+    df_final = df_final.sort_values(by='tahun_beli', ascending=False)
+    
     # 5. Formatting
     df_final['harga_display'] = df_final['harga_raw'].apply(lambda x: f"Rp {x:,.0f}")
     df_final['ump_display'] = df_final['ump'].apply(lambda x: f"Rp {x:,.0f}")
-    df_final['info_beli'] = df_final['tahun_beli'].apply(lambda x: f"{x:.1f} Tahun")
+    df_final['info_beli'] = df_final['tahun_beli'].apply(
+    lambda x: f"{int(x*12)//12} tahun {int(x*12)%12} bulan"
+)
     
     return df_final, df_properti

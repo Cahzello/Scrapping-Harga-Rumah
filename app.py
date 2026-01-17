@@ -21,10 +21,9 @@ def main():
         ump_dict = data_loader.load_ump_from_csv()
         
         # Tampilkan info jika berhasil load CSV
-        if ump_dict:
-            st.success(f"Berhasil membaca data UMP untuk {len(ump_dict)} provinsi.")
-        else:
+        if not ump_dict:
             st.warning("Data UMP kosong. Pastikan file CSV ada dan formatnya benar.")
+            
 
     if geojson_data and ump_dict:
         # 2. Scrap & Process

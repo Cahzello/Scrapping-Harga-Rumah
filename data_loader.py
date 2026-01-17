@@ -127,7 +127,7 @@ def scrape_property_data(geojson_data, ump_data):
                 
                 # Simulasi harga (Jakarta lebih mahal)
                 if "JAKARTA" in nama_key:
-                    harga = random.randint(800, 15000)
+                    harga = random.randint(9000, 15000)
                 else:
                     harga = random.randint(200, 4000)
                 
