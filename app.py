@@ -1,5 +1,8 @@
+# app.py
 import streamlit as st
 from streamlit_folium import st_folium
+
+# Import modul
 import data_loader
 import processor
 import visualizer
@@ -7,16 +10,29 @@ import visualizer
 def main():
     st.set_page_config(page_title="Peta Affordability Indonesia", layout="wide")
     st.title("🇮🇩 Peta Keterjangkauan Rumah per Provinsi")
-    st.markdown("Menggunakan **GeoJSON** otomatis dan Modular Python.")
+    st.markdown("Menggunakan data **UMP Official (CSV)** dan GeoJSON.")
 
     # 1. Load Data
-    with st.spinner("Mengambil data peta..."):
+    with st.spinner("Menyiapkan data..."):
+        # Load Peta
         geojson_data = data_loader.load_geojson()
-    
-    if geojson_data:
+        
+        # Load UMP dari CSV
+        ump_dict = data_loader.load_ump_from_csv()
+        
+        # Tampilkan info jika berhasil load CSV
+        if ump_dict:
+            st.success(f"Berhasil membaca data UMP untuk {len(ump_dict)} provinsi.")
+        else:
+            st.warning("Data UMP kosong. Pastikan file CSV ada dan formatnya benar.")
+
+    if geojson_data and ump_dict:
         # 2. Scrap & Process
-        raw_data = data_loader.scrape_property_data(geojson_data)
-        df_summary, df_raw = processor.process_data(raw_data)
+        # Kirim ump_dict ke fungsi scraping untuk filter provinsi
+        raw_data = data_loader.scrape_property_data(geojson_data, ump_dict)
+        
+        # Kirim ump_dict ke processor untuk perhitungan
+        df_summary, df_raw = processor.process_data(raw_data, ump_dict)
 
         if not df_summary.empty:
             # 3. Layout Dashboard
@@ -26,17 +42,15 @@ def main():
                 st.subheader("Analisis Data")
                 st.dataframe(df_summary[['provinsi', 'ump_display', 'info_beli']], use_container_width=True)
                 
-                # Panggil visualizer
                 fig = visualizer.create_bar_chart(df_summary)
                 st.pyplot(fig)
             
             with col2:
-                st.subheader("Peta Persebaran (GeoJSON)")
-                # Panggil visualizer
+                st.subheader("Peta Persebaran")
                 map_obj = visualizer.create_geojson_map(df_summary, geojson_data)
                 st_folium(map_obj, width=None, height=500)
         else:
-            st.warning("Data kosong atau tidak cocok.")
+            st.error("Tidak ada data provinsi yang cocok antara CSV dan GeoJSON. Cek ejaan nama provinsi.")
     else:
         st.stop()
 
