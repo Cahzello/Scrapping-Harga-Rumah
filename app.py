@@ -32,14 +32,14 @@ def main():
         
         # Kirim ump_dict ke processor untuk perhitungan
         df_summary, df_raw = processor.process_data(raw_data, ump_dict)
-
+        
         if not df_summary.empty:
             # 3. Layout Dashboard
             col1, col2 = st.columns([1, 1])
             
             with col1:
                 st.subheader("Analisis Data")
-                st.dataframe(df_summary[['provinsi', 'ump_display', 'info_beli']], use_container_width=True)
+                st.dataframe(df_summary[['provinsi', 'ump_display', 'info_beli']], width='stretch')
                 
                 fig = visualizer.create_bar_chart(df_summary)
                 st.pyplot(fig)
@@ -50,8 +50,38 @@ def main():
                 st_folium(map_obj, width=None, height=500)
         else:
             st.error("Tidak ada data provinsi yang cocok antara CSV dan GeoJSON. Cek ejaan nama provinsi.")
+            
+        debugging(geojson_data, ump_dict)
     else:
         st.stop()
+
+def debugging(geojson_data, ump_dict):
+    
+    with st.expander("🕵️ DIAGNOSA: Cek Data Provinsi yang Hilang"):
+        # 1. Ambil semua nama provinsi dari Peta (GeoJSON)
+        nama_di_peta = set()
+        for f in geojson_data['features']:
+            # Cek berbagai kemungkinan key nama properti
+            props = f['properties']
+            nama = props.get('Propinsi') or props.get('PROVINSI') or props.get('NAME_1')
+            if nama:
+                nama_di_peta.add(str(nama).upper())
+        
+        # 2. Ambil semua nama dari CSV UMP
+        nama_di_csv = set(ump_dict.keys())
+        
+        # 3. Cari yang Hilang
+        hilang_karena_nama_beda = nama_di_csv - nama_di_peta
+        
+        st.write(f"Total Provinsi di CSV: **{len(nama_di_csv)}**")
+        st.write(f"Total Provinsi di Peta: **{len(nama_di_peta)}**")
+        st.write(f"Data yang Match: **{len(nama_di_csv.intersection(nama_di_peta))}**")
+        
+        if hilang_karena_nama_beda:
+            st.error(f"❌ {len(hilang_karena_nama_beda)} Provinsi ada di CSV tapi TIDAK DITEMUKAN di Peta:")
+            st.write(list(hilang_karena_nama_beda))
+            st.info("💡 Solusi: Samakan penulisan di CSV dengan nama yang ada di Peta, atau ganti URL GeoJSON yang lebih lengkap.")
+    
 
 if __name__ == "__main__":
     main()

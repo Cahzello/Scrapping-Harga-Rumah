@@ -1,3 +1,4 @@
+# data_loader.py
 import requests
 import pandas as pd
 import random
@@ -9,7 +10,11 @@ from config import GEOJSON_URL, UMP_CSV_PATH
 def load_geojson():
     """Download data batas wilayah (Polygon) dari GitHub"""
     try:
-        response = requests.get(GEOJSON_URL)
+        # Tambahkan headers agar tidak ditolak GitHub
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(GEOJSON_URL, headers=headers)
         if response.status_code == 200:
             return response.json()
         else:
@@ -19,51 +24,35 @@ def load_geojson():
         st.error(f"Error GeoJSON: {e}")
         return None
 
-@st.cache_data
+# @st.cache_data
 def load_ump_from_csv():
-    """Membaca file CSV UMP dengan handling khusus untuk format Anda"""
+    """Membaca file CSV UMP"""
     try:
-        # 1. BACA CSV DENGAN SKIPROWS
-        # Kita lewati 3 baris teratas agar header tabel ("No", "Provinsi", dll) terbaca sebagai header
         df = pd.read_csv(UMP_CSV_PATH, sep=';') 
-        print(df)
-        print(len(df.columns))
 
-        # 2. IDENTIFIKASI KOLOM (Berdasarkan posisi, bukan nama, agar lebih aman)
-        # Asumsi struktur: Kolom ke-2 adalah PROVINSI, Kolom ke-3 adalah NILAI
-        # (Indeks 0=No, 1=Provinsi, 2=Upah)
         if len(df.columns) < 3:
             st.error("Format CSV salah. Pastikan minimal ada kolom No, Provinsi, dan Upah.")
             return {}
 
-        # Ambil kolom berdasarkan indeks posisi
         col_provinsi = df.columns[1] 
         col_upah = df.columns[2]
 
         ump_dict = {}
 
         for _, row in df.iterrows():
-            # Ambil raw data
             raw_prov = str(row[col_provinsi])
             raw_upah = str(row[col_upah])
-
-            # --- CLEANING DATA ---
             
-            # A. Skip baris sampah (NaN, "Rata-Rata", atau baris kosong)
             if raw_prov.lower() in ['nan', 'rata-rata', 'nat'] or raw_prov.strip() == '':
                 continue
 
-            # B. Normalisasi Nama Provinsi
-            # Ubah jadi UPPERCASE
-            clean_prov = raw_prov.upper().strip()
-            # Hapus titik (misal: "DI. YOGYAKARTA" jadi "DI YOGYAKARTA")
-            clean_prov = clean_prov.replace('.', '')
-            # Fix khusus untuk Papua Barat Daya dll jika perlu (sesuaikan dengan GeoJSON)
-            # GeoJSON biasanya: "DKI JAKARTA", "DI YOGYAKARTA", "BANGKA BELITUNG"
+            # Normalisasi: UPPERCASE & Hapus Titik (DI. YOGYAKARTA -> DI YOGYAKARTA)
+            clean_prov = raw_prov.upper().strip().replace('.', '')
             
-            # C. Bersihkan Angka Rupiah
-            # Hapus "Rp", titik ribuan, spasi
-            clean_upah = re.sub(r'[^\d]', '', raw_upah) # Hanya ambil digit angka
+            # Fix Khusus: Jika di CSV "DKI JAKARTA" tapi di Peta "DAERAH KHUSUS IBUKOTA JAKARTA"
+            # (Opsional: tambahkan mapping manual jika masih ada yang tidak match)
+            
+            clean_upah = re.sub(r'[^\d]', '', raw_upah)
 
             try:
                 if clean_upah:
@@ -74,69 +63,74 @@ def load_ump_from_csv():
 
         return ump_dict
 
-    except FileNotFoundError:
-        st.error(f"File '{UMP_CSV_PATH}' tidak ditemukan.")
-        return {}
     except Exception as e:
         st.error(f"Gagal membaca CSV: {e}")
         return {}
 
 @st.cache_data
 def scrape_property_data(geojson_data, ump_data):
-    """
-    Generate data properti dummy.
-    Menerima ump_data yang sudah bersih.
-    """
     data_mock = []
     
     if not geojson_data or not ump_data:
-        return []
+            return []
 
     for feature in geojson_data['features']:
         props = feature['properties']
-        nama_prov_geojson = props.get('Propinsi') 
         
+        # --- UPDATE DI SINI ---
+        # GeoJSON baru mungkin pakai 'Provinsi', yang lama 'Propinsi'. Kita cek semua.
+        nama_prov_geojson = props.get('PROVINSI') or \
+                            props.get('Provinsi') or \
+                            props.get('Propinsi')
+                            
         if not nama_prov_geojson:
             continue
 
-        # Normalisasi nama dari GeoJSON agar cocok dengan dictionary UMP
+        # Normalisasi nama dari GeoJSON
         nama_key = str(nama_prov_geojson).upper().strip()
+        
+        # Hapus kata-kata awalan jika perlu agar cocok dengan CSV
+        # Misal: "PROVINSI JAWA BARAT" -> "JAWA BARAT"
+        nama_key = nama_key.replace('PROVINSI ', '')
 
-        # Cek apakah provinsi ini ada di data UMP kita
+        # Cek apakah provinsi ini ada di data UMP
         if nama_key in ump_data:
             
-            # Ambil polygon & titik tengah
             geom = feature['geometry']
+            # Handle Polygon & MultiPolygon
             if geom['type'] == 'Polygon':
                 coords = geom['coordinates'][0]
             elif geom['type'] == 'MultiPolygon':
+                # Ambil polygon terbesar atau pertama
                 coords = geom['coordinates'][0][0]
             else:
                 continue
             
-            # Hitung centroid
-            lons = [c[0] for c in coords]
-            lats = [c[1] for c in coords]
-            center_lon = sum(lons) / len(lons)
-            center_lat = sum(lats) / len(lats)
+            # Cari titik tengah (centroid) sederhana
+            try:
+                lons = [c[0] for c in coords]
+                lats = [c[1] for c in coords]
+                center_lon = sum(lons) / len(lons)
+                center_lat = sum(lats) / len(lats)
 
-            # Generate 15 rumah dummy
-            for i in range(15):
-                lat_rnd = center_lat + random.uniform(-0.2, 0.2)
-                lon_rnd = center_lon + random.uniform(-0.2, 0.2)
-                
-                # Simulasi harga (Jakarta lebih mahal)
-                if "JAKARTA" in nama_key:
-                    harga = random.randint(9000, 15000)
-                else:
-                    harga = random.randint(200, 4000)
-                
-                data_mock.append({
-                    "judul": f"Rumah {nama_prov_geojson} #{i+1}",
-                    "provinsi": nama_key, # Simpan nama yang sudah dinormalisasi
-                    "harga_raw": harga * 1000000,
-                    "latitude": lat_rnd,
-                    "longitude": lon_rnd
-                })
+                # Generate 15 rumah dummy
+                for i in range(15):
+                    lat_rnd = center_lat + random.uniform(-0.1, 0.1)
+                    lon_rnd = center_lon + random.uniform(-0.1, 0.1)
+                    
+                    if "JAKARTA" in nama_key:
+                        harga = random.randint(800, 15000)
+                    else:
+                        harga = random.randint(200, 4000)
+                    
+                    data_mock.append({
+                        "judul": f"Rumah {nama_key} #{i+1}",
+                        "provinsi": nama_key,
+                        "harga_raw": harga * 1000000,
+                        "latitude": lat_rnd,
+                        "longitude": lon_rnd
+                    })
+            except:
+                continue
     
     return data_mock
