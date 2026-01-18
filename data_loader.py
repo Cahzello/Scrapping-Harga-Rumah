@@ -24,7 +24,7 @@ def load_geojson():
         st.error(f"Error GeoJSON: {e}")
         return None
 
-# @st.cache_data
+@st.cache_data
 def load_ump_from_csv():
     """Membaca file CSV UMP"""
     try:
