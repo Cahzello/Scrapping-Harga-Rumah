@@ -59,5 +59,5 @@ def get_scrapped_data(geojson_data, ump_dict):
     raw_data = data_loader.scrape_property_data(geojson_data, ump_dict)
     return raw_data  
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
