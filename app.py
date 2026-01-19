@@ -47,7 +47,7 @@ def main():
             with col2:
                 st.subheader("Peta Persebaran")
                 map_obj = visualizer.create_geojson_map(df_summary, geojson_data)
-                st_folium(map_obj, width=None, height=500)
+                st_folium(map_obj, width=None, height=500, key='peta_utama')
         else:
             st.error("Tidak ada data provinsi yang cocok antara CSV dan GeoJSON. Cek ejaan nama provinsi.")
             
