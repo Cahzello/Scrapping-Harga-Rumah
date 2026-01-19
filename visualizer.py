@@ -9,6 +9,7 @@ def create_bar_chart(df_summary):
     bars = ax.bar(df_summary['provinsi'], df_summary['tahun_beli'], color=colors)
     ax.set_title("Lama Kerja untuk Beli Rumah (Tahun)")
     ax.set_ylabel("Tahun")
+    ax.set_xticks(range(len(df_summary)))
     ax.set_xticklabels(df_summary['provinsi'], rotation=90) # Rotasi 90 biar muat
     ax.bar_label(bars, fmt='%.1f th')
     
