@@ -51,7 +51,7 @@ def main():
         else:
             st.error("Tidak ada data provinsi yang cocok antara CSV dan GeoJSON. Cek ejaan nama provinsi.")
             
-        debugging(geojson_data, ump_dict)
+        # debugging(geojson_data, ump_dict)
     else:
         st.stop()
 
