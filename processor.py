@@ -9,7 +9,6 @@ def process_data(raw_data, ump_dict):
         return pd.DataFrame(), pd.DataFrame()
 
     df_properti = pd.DataFrame(raw_data)
-    print('df_properti : ',df_properti)
     
     # 1. Rata-rata harga per provinsi
     df_avg = df_properti.groupby('provinsi')['harga_raw'].mean().reset_index()
