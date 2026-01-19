@@ -61,3 +61,5 @@ def get_scrapped_data(geojson_data, ump_dict):
 
 # if __name__ == "__main__":
 #     main()
+    
+main()
